@@ -3,6 +3,9 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 
+const users = require('./users.json');
+console.log(users);
+
 
 app.use(express.json());       
 // app.use(express.urlencoded( {extended: false}));
@@ -18,7 +21,7 @@ const db = mysql.createConnection({
     host     : 'localhost',
     user     : 'root',
     password : 's559',
-    database : 'amirm'
+    database : 'amirm_db'
 });
 
 db.connect(function(err) {
@@ -55,24 +58,13 @@ app.post('/user', (req, res)=>{
 // blogs
 app.get('/blogs', (req, res)=> {
     const {limit, lastblog} = req.query
-    if (!lastblog || lastblog=='null') {
-        db.query(`call  blogs_get_with_limit( ${limit} )`,(err, results)=>{
-            if (err) {
-                res.status(500).json({type: 'sql', errorno: err.errno, massage: err.sqlMessage});
-            }
-            res.status(200).json(results);
-        })
-    }
-    else {
-        db.query(`call blogs_get_with_pagination(${limit}, ${lastblog})`,(err, results)=>{
-            if (err) {
-                res.status(500).json({type: 'sql', errorno: err.errno, massage: err.sqlMessage});
-                return
-            }
-            res.status(200).json(results)
-        })
-    }
-})
+    db.query('call blogs_get( ?, ? )', [limit, lastblog],(err, results)=>{
+        if (err) {
+            res.status(500).json({type: 'sql', errorno: err.errno, massage: err.sqlMessage});
+            return
+        }
+        res.status(200).json(results)
+    })})
 
 // single blog
 app.get('/blog', (req, res) => {
@@ -88,26 +80,16 @@ app.get('/blog', (req, res) => {
 // singls blog comments
 app.get('/blog/comments', (req, res) => {
     const {blog_id, limit, lastcomment} = req.query
-    if (!lastcomment || lastcomment=='null') {
-        db.query(`call blog_get_comments_with_limit( ${blog_id}, ${limit} )`,(err, results)=>{
-            if (err) {
-                res.status(500).json({type: 'sql', errorno: err.errno, massage: err.sqlMessage});
-                return
-            }
-            res.status(200).json(results);
-        })
-    }
-    else {
-        db.query(`call blog_get_comments_with_pagination( ${blog_id}, ${limit}, ${lastcomment} )`,(err, results)=>{
-            if (err) {
-                res.status(500).json({type: 'sql', errorno: err.errno, massage: err.sqlMessage});
-                return
-            }
-            res.status(200).json(results)
-        })
-    }
+    db.query('call blog_get_comments( ?, ?, ? )',[blog_id, limit, lastcomment],(err, results)=>{
+        if (err) {
+            res.status(500).json({type: 'sql', errorno: err.errno, massage: err.sqlMessage});
+            return
+        }
+        res.status(200).json(results)
+    })
 })
 
+// add comment
 app.post('/blog/comments', (req, res)=>{
     const { blog_id, user_google_id, content_text } = req.body
     db.query(`call blog_add_comment( ?, ?, ?)`,[content_text, user_google_id, blog_id],(err, results)=>{
@@ -118,6 +100,17 @@ app.post('/blog/comments', (req, res)=>{
         res.status(200).json('success')
         
     })
+})
+
+// get access 
+app.post('/access', (req, res)=>{
+    const {password, name} = req.body
+    const user = users.find(user => user.name === name && user.pass === password )
+    if (user) {
+        res.status(200).json(user)
+    }else {
+        res.status(500).send()
+    }
 })
 // api
 
